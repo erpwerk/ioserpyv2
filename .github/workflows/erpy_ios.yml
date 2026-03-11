@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'erpy-v2/ios-app/**'
+      - 'ios-app/**'
   workflow_dispatch:
 
 jobs:
@@ -17,12 +17,12 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode Project
-        run: xcodegen generate --spec erpy-v2/ios-app/project.yml
+        run: xcodegen generate --spec ios-app/project.yml
 
       - name: Build Archive
         run: |
           xcodebuild archive \
-            -project erpy-v2/ios-app/ERPY.xcodeproj \
+            -project ios-app/ERPY.xcodeproj \
             -scheme ERPY \
             -configuration Release \
             -archivePath ERPY.xcarchive \
