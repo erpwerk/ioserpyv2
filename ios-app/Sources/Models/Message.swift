@@ -1,6 +1,10 @@
-import Foundation
+Message.swift
+../erpy-v2/ios-app/Sources/Models
 
-struct Message: IDENTIFIABLE, Codable {
+
+
+import Foundation
+struct Message: Identifiable, Codable {
     let id: UUID
     let role: String
     var content: String
