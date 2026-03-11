@@ -1,24 +1,28 @@
-name: Build iOS Native (ERPY V2)
 
+erpy_ios.yml
+../erpy-v2/.github/workflows
+
+
+
+name: Build iOS Native (ERPY V2)
 on:
   push:
     branches: [ main ]
     paths:
       - 'ios-app/**'
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install XcodeGen
         run: brew install xcodegen
-
       - name: Generate Xcode Project
         run: xcodegen generate --spec ios-app/project.yml
-
+      - name: Resize App Icon
+        run: |
+          sips -z 1024 1024 ios-app/Sources/Assets.xcassets/AppIcon.appiconset/icon.png
       - name: Build Archive
         run: |
           xcodebuild archive \
@@ -31,7 +35,6 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_ENTITLEMENTS= \
             CODE_SIGNING_METHOD=manual
-
       - name: Export IPA
         run: |
           mkdir -p build/Payload
