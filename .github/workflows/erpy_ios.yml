@@ -1,0 +1,46 @@
+name: Build iOS Native (ERPY V2)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'erpy-v2/ios-app/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate --spec erpy-v2/ios-app/project.yml
+
+      - name: Build Archive
+        run: |
+          xcodebuild archive \
+            -project erpy-v2/ios-app/ERPY.xcodeproj \
+            -scheme ERPY \
+            -configuration Release \
+            -archivePath ERPY.xcarchive \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_ENTITLEMENTS= \
+            CODE_SIGNING_METHOD=manual
+
+      - name: Export IPA
+        run: |
+          mkdir -p build/Payload
+          cp -R ERPY.xcarchive/Products/Applications/ERPY.app build/Payload/
+          cd build
+          zip -r ERPY.ipa Payload
+          
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: erpy-native-ipa
+          path: build/ERPY.ipa
