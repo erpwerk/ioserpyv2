@@ -1,9 +1,3 @@
-
-erpy_ios.yml
-../erpy-v2/.github/workflows
-
-
-
 name: Build iOS Native (ERPY V2)
 on:
   push:
