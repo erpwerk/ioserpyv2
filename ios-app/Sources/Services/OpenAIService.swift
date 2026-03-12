@@ -1,0 +1,144 @@
+import Foundation
+
+class OpenAIService: NSObject, LLMProvider, URLSessionDataDelegate {
+    private var session: URLSession!
+    private var onMessage: ((String) -> Void)?
+    private var onComplete: (() -> Void)?
+    private var apiKey: String = ""
+    
+    override init() {
+        super.init()
+        let config = URLSessionConfiguration.default
+        session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+    }
+    
+    func generateStream(prompt: String, model: String, apiKey: String, onMessage: @escaping (String) -> Void, onComplete: @escaping () -> Void) {
+        self.onMessage = onMessage
+        self.onComplete = onComplete
+        self.apiKey = apiKey
+        
+        // Handle image generation branching
+        if prompt.lowercased().contains("generiere ein bild") || prompt.lowercased().contains("erstelle ein bild") {
+            generateImage(prompt: prompt, apiKey: apiKey)
+            return
+        }
+        
+        // Use the Modern 2026 Responses API
+        guard let url = URL(string: "https://api.openai.com/v1/responses") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Use gpt-5.4 or gpt-5-mini as requested
+        let body: [String: Any] = [
+            "model": model == "gpt-5-main" ? "gpt-5.4" : model,
+            "input": prompt,
+            "tools": [["type": "web_search"]], // Native web search in Responses API
+            "stream": true
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        let task = session.dataTask(with: request)
+        task.resume()
+    }
+    
+    private func generateImage(prompt: String, apiKey: String) {
+        // Modern 2026 Image Generation often uses 'gpt-image-1'
+        guard let url = URL(string: "https://api.openai.com/v1/images/generations") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "model": "gpt-image-1", // Modern 2026 image model
+            "prompt": prompt,
+            "n": 1,
+            "size": "1024x1024"
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let dataArray = json["data"] as? [[String: Any]],
+                  let imageUrl = dataArray.first?["url"] as? String else {
+                DispatchQueue.main.async {
+                    self.onMessage?("⚠️ Bildgenerierung (GPT-Image-1) fehlgeschlagen.")
+                    self.onComplete?()
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self.onMessage?("[IMAGE]\(imageUrl)")
+                self.onComplete?()
+            }
+        }.resume()
+    }
+    
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard let responseString = String(data: data, encoding: .utf8) else { return }
+        
+        // 1. Check for the "Modern 2026" Array format [ {...}, {...} ]
+        // This is often returned as a single chunk containing the whole array or pieces of it
+        if let jsonData = responseString.data(using: .utf8),
+           let jsonArray = try? JSONSerialization.jsonObject(with: jsonData) as? [[String: Any]] {
+            for item in jsonArray {
+                if let type = item["type"] as? String, type == "message",
+                   let contentArray = item["content"] as? [[String: Any]] {
+                    for content in contentArray {
+                        if let textType = content["type"] as? String, textType == "output_text",
+                           let text = content["text"] as? String {
+                            DispatchQueue.main.async { self.onMessage?(text) }
+                        } else if let text = content["text"] as? String {
+                            DispatchQueue.main.async { self.onMessage?(text) }
+                        }
+                    }
+                } else if let error = item["error"] as? [String: Any], let message = error["message"] as? String {
+                    DispatchQueue.main.async { self.onMessage?("⚠️ OpenAI API Error: \(message)") }
+                }
+            }
+            return
+        }
+
+        // 2. Fallback to Legacy "data: " streaming format
+        let lines = responseString.components(separatedBy: "\n")
+        for line in lines {
+            let line = line.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("data: ") {
+                let jsonString = line.replacingOccurrences(of: "data: ", with: "")
+                if jsonString == "[DONE]" || jsonString.isEmpty { continue }
+                
+                if let data = jsonString.data(using: .utf8),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    
+                    if let choices = json["choices"] as? [[String: Any]],
+                       let firstChoice = choices.first,
+                       let delta = firstChoice["delta"] as? [String: Any],
+                       let content = delta["content"] as? String {
+                        DispatchQueue.main.async { self.onMessage?(content) }
+                    } else if let error = json["error"] as? [String: Any], let message = error["message"] as? String {
+                         DispatchQueue.main.async { self.onMessage?("⚠️ OpenAI Error: \(message)") }
+                    }
+                }
+            }
+        }
+    }
+    
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error {
+            DispatchQueue.main.async {
+                self.onMessage?("⚠️ Connection Error: \(error.localizedDescription)")
+            }
+        }
+        DispatchQueue.main.async {
+            self.onComplete?()
+        }
+    }
+}
