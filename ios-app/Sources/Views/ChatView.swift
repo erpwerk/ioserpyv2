@@ -1,6 +1,5 @@
 import SwiftUI
 import PhotosUI
-
 struct ChatView: View {
     @StateObject private var viewModel = ChatViewModel()
     @State private var showingFilePicker = false
@@ -108,7 +107,6 @@ struct ChatView: View {
                     .background(Color.blue.opacity(0.1))
                     .cornerRadius(6)
                 }
-
                 Button(action: { showingSettings = true }) {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 18))
@@ -175,7 +173,6 @@ struct ChatView: View {
                         .font(.system(size: 20))
                         .foregroundColor(.blue)
                 }
-
                 TextField("Nachricht...", text: $viewModel.inputText)
                     .padding(12)
                     .background(Color(white: 0.1))
@@ -188,7 +185,7 @@ struct ChatView: View {
                             .font(.system(size: 24))
                             .foregroundColor(viewModel.isRecording ? .red : .blue)
                             .scaleEffect(viewModel.isRecording ? 1.2 : 1.0)
-                            .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: viewModel.isRecording)
+                            .animation(viewModel.isRecording ? .easeInOut(duration: 0.5).repeatForever(autoreverses: true) : .default, value: viewModel.isRecording)
                     }
                 } else {
                     Button(action: { viewModel.sendMessage() }) {
@@ -203,7 +200,6 @@ struct ChatView: View {
         }
     }
 }
-
 struct MessageBubble: View {
     let message: Message
     
