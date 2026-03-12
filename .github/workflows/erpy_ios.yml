@@ -1,43 +1,48 @@
-name: Build iOS Native (ERPY V2)
+name: Build iOS IPA
+
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'ios-app/**'
+    branches: [ main, master ]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: macos-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Install XcodeGen
         run: brew install xcodegen
+
       - name: Generate Xcode Project
         run: xcodegen generate --spec ios-app/project.yml
+
       - name: Resize App Icon
-        run: |
-          sips -z 1024 1024 ios-app/Sources/Assets.xcassets/AppIcon.appiconset/icon.png
+        run: sips -z 1024 1024 ios-app/Sources/Assets.xcassets/AppIcon.appiconset/icon.png
+
       - name: Build Archive
         run: |
           xcodebuild archive \
-            -project ios-app/ERPY.xcodeproj \
-            -scheme ERPY \
+            -project ios-app/AgentWrapper.xcodeproj \
+            -scheme AgentWrapper \
             -configuration Release \
-            -archivePath ERPY.xcarchive \
+            -archivePath AgentWrapper.xcarchive \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_ENTITLEMENTS= \
+            CODE_SIGN_ENTITLEMENTS="" \
             CODE_SIGNING_METHOD=manual
-      - name: Export IPA
+
+      - name: Create Payload and IPA
         run: |
-          mkdir -p build/Payload
-          cp -R ERPY.xcarchive/Products/Applications/ERPY.app build/Payload/
-          cd build
-          zip -r ERPY.ipa Payload
-          
-      - name: Upload IPA
+          mkdir -p Payload
+          cp -r AgentWrapper.xcarchive/Products/Applications/AgentWrapper.app Payload/
+          zip -r AgentWrapper.ipa Payload/
+
+      - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: erpy-native-ipa
-          path: build/ERPY.ipa
+          name: AgentWrapper-IPA
+          path: AgentWrapper.ipa
