@@ -1,6 +1,5 @@
 import SwiftUI
 import Combine
-
 class ChatViewModel: ObservableObject {
     @Published var messages: [Message] = []
     @Published var inputText: String = ""
@@ -18,8 +17,18 @@ class ChatViewModel: ObservableObject {
     
     let models = ["gpt-4o-latest", "gemini-1.5-flash-latest", "gemini-1.5-pro-latest"]
     
+    private var cancellables = Set<AnyCancellable>()
+    
     init() {
         loadMessages()
+        
+        // Sync isRecording with SpeechManager
+        speechManager.$isRecording
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] recording in
+                self?.isRecording = recording
+            }
+            .store(in: &cancellables)
     }
     
     func sendMessage() {
@@ -121,12 +130,10 @@ class ChatViewModel: ObservableObject {
     func toggleRecording() {
         if isRecording {
             speechManager.stopRecording()
-            isRecording = false
             if !inputText.isEmpty {
                 sendMessage()
             }
         } else {
-            isRecording = true
             speechManager.startRecording { [weak self] transcript in
                 DispatchQueue.main.async {
                     self?.inputText = transcript
@@ -135,3 +142,4 @@ class ChatViewModel: ObservableObject {
         }
     }
 }
+
