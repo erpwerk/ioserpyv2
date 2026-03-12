@@ -1,0 +1,17 @@
+name: AgentWrapper
+options:
+  bundleIdPrefix: de.stevenpetersen
+targets:
+  AgentWrapper:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources: [Sources]
+    settings:
+      base:
+        INFOPLIST_FILE: Sources/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: de.stevenpetersen.AgentWrapper
+        MARKETING_VERSION: 1.0.0
+        CURRENT_PROJECT_VERSION: 1
+        TARGETED_DEVICE_FAMILY: "1,2" # iPhone and iPad
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
