@@ -1,48 +1,53 @@
-name: Build iOS IPA
+name: Build iOS Native (ERPY V2)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
+    paths:
+      - 'ios-app/**'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
-    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate Xcode Project
-        run: xcodegen generate --spec ios-app/project.yml
+        run: xcodegen generate --spec project.yml
+        working-directory: ios-app
 
       - name: Resize App Icon
-        run: sips -z 1024 1024 ios-app/Sources/Assets.xcassets/AppIcon.appiconset/icon.png
+        run: |
+          sips -z 1024 1024 Sources/Assets.xcassets/AppIcon.appiconset/icon.png
+        working-directory: ios-app
 
       - name: Build Archive
         run: |
           xcodebuild archive \
-            -project ios-app/AgentWrapper.xcodeproj \
-            -scheme AgentWrapper \
+            -project ERPY.xcodeproj \
+            -scheme ERPY \
             -configuration Release \
-            -archivePath AgentWrapper.xcarchive \
+            -archivePath ../ERPY.xcarchive \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_ENTITLEMENTS="" \
+            CODE_SIGN_ENTITLEMENTS= \
             CODE_SIGNING_METHOD=manual
+        working-directory: ios-app
 
-      - name: Create Payload and IPA
+      - name: Export IPA
         run: |
-          mkdir -p Payload
-          cp -r AgentWrapper.xcarchive/Products/Applications/AgentWrapper.app Payload/
-          zip -r AgentWrapper.ipa Payload/
-
-      - name: Upload IPA Artifact
+          mkdir -p build/Payload
+          cp -R ERPY.xcarchive/Products/Applications/ERPY.app build/Payload/
+          cd build
+          zip -r ERPY.ipa Payload
+          
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: AgentWrapper-IPA
-          path: AgentWrapper.ipa
+          name: erpy-native-ipa
+          path: build/ERPY.ipa
